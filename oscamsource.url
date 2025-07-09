@@ -23,8 +23,8 @@
 #   command: SOURCE=IDENT ./s3 checkout
 #trunkurlIDENT="https://domain/ident-repo.git"
 #
-#   command: SOURCE=FOO ./s3 menu
-#trunkurlFOO="https://domain/foo-repo.git"
+#   command: SOURCE=modern ./s3 menu
+trunkurlmodern="https://github.com/ahmedmoselhi/oscam_modern.git"
 #
 #   command: SOURCE=BAR ./s3 repoup
 #trunkurlBAR="https://domain/bar-repo.git"

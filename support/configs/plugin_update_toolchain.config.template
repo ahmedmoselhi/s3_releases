@@ -649,7 +649,10 @@ LIB_DVBC32_tasks+=('mkdir "${LIB_DVBC32_name}-${LIB_DVBC32_version}" && find "@P
 LIB_ZLIB="1";
 LIB_ZLIB_beta="0";
 LIB_ZLIB_name="zlib";
-LIB_ZLIB_tag="$(git ls-remote --sort=-version:refname https://github.com/madler/zlib.git --tags v*.* | grep -v 'alpha\|beta\|\-pre\|\-rc\|\^' | awk -F'/' 'NR==1 {print $NF}')";
+LIB_ZLIB_tag="$(curl --silent $CURL_GITHUB_TOKEN "https://api.github.com/repos/madler/zlib/releases/latest" | jq -r '.tag_name')";
+if [ -z "$LIB_ZLIB_tag" ] || [ "$LIB_ZLIB_tag" = "null" ]; then
+    LIB_ZLIB_tag="$(git ls-remote --sort=-version:refname https://github.com/madler/zlib.git --tags v*.* | grep -v 'alpha\|beta\|\-pre\|\-rc\|\^' | awk -F'/' 'NR==1 {print $NF}')";
+fi
 LIB_ZLIB_version="$(printf "$LIB_ZLIB_tag" | sed -e 's#v##g; s#_#.#g; s#\"##g')";
 LIB_ZLIB_check="zlib.pc";
 LIB_ZLIB_url="$(curl --silent $CURL_GITHUB_TOKEN "https://api.github.com/repos/madler/zlib/releases/tags/$LIB_ZLIB_tag" | jq -r '.assets | .[] | select( .name | endswith(".tar.xz")) | .browser_download_url' | sed -e 's#\"##g')";

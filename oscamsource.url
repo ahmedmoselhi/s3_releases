@@ -1,0 +1,2 @@
+# command: SOURCE=modern ./s3 menu
+trunkurlmodern="https://github.com/ahmedmoselhi/oscam_modern.git"

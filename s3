@@ -173,7 +173,11 @@ fi
 #set additional dir_vars
 REPO="$(REPOTYPE)"
 ID="$(echo "$(REPOIDENT)" | tr ' ' '-')"
-repodir="$workdir/oscam-${REPO}${ID}"
+if [ "$REPO" == "git" ]; then
+	repodir="$workdir/oscam${ID}"
+else
+	repodir="$workdir/oscam-${REPO}${ID}"
+fi
 ispatched="$workdir/${REPO^^}${ID}-IS-PATCHED"
 
 #software build support

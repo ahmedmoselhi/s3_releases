@@ -106,14 +106,18 @@ LIBS_AUTO_INTEGRATE="1"; # Automatically reintegrate libraries when rebuilding t
 PKG_CONFIG_BIN="$(which pkg-config)"; #Make sure use host's pkg-config binary instead of cross toolchain's one
 
 # OpenSSL 3.6.x
+SSL_360_tag="$(git ls-remote --sort=-version:refname https://github.com/openssl/openssl.git --tags 'openssl-3.6.*' | grep -v 'alpha\|beta\|\-pre\|\-rc\|\^' | awk -F'/' 'NR==1 {print $NF}')";
+SSL_360_version="$(printf "%s" "$SSL_360_tag" | sed -e 's#openssl-##g; s#_#.#g; s#\"##g')";
+SSL_360_check="openssl.pc $(printf "%s" "$SSL_360_version" | grep -Eo '[0-9]+\.[0-9]+')";
+SSL_360_url="$(curl --silent --fail $CURL_GITHUB_TOKEN "https://api.github.com/repos/openssl/openssl/releases/tags/$SSL_360_tag" | jq -r '.assets[]? | select(.name? | test("tar\\.(gz|xz)$")?) | .browser_download_url?' | head -1)";
+SSL_360_url="${SSL_360_url:-https://github.com/openssl/openssl/archive/refs/tags/${SSL_360_tag}.tar.gz}";
 SSL_360="1";
 SSL_360_beta="0";
 SSL_360_name="OpenSSL";
-SSL_360_tag="$(git ls-remote --sort=-version:refname https://github.com/openssl/openssl.git --tags openssl-3.6.* | grep -v 'alpha\|beta\|\-pre\|\-rc\|\^' | awk -F'/' 'NR==1 {print $NF}')";
-SSL_360_version="$(printf "$SSL_360_tag" | sed -e 's#openssl-##g; s#_#.#g; s#\"##g')";
-SSL_360_check="openssl.pc $(printf "$SSL_360_version" | grep -Eo '[0-9]+\.[0-9]+')";
-SSL_360_url="$(curl --silent --fail $CURL_GITHUB_TOKEN "https://api.github.com/repos/openssl/openssl/releases/tags/$SSL_360_tag" | jq -r '.assets[]? | select(.name? | test("tar\\.(gz|xz)$")?) | .browser_download_url?' | head -1)";
-SSL_360_url="${SSL_360_url:-https://github.com/openssl/openssl/archive/refs/tags/${SSL_360_tag}.tar.gz}";
+SSL_360_tag="${SSL_360_tag}";
+SSL_360_version="${SSL_360_version}";
+SSL_360_check="${SSL_360_check}";
+SSL_360_url="${SSL_360_url}";
 SSL_360_tasks=('export TOOLCHAIN=@TOOLCHAIN@;');
 SSL_360_tasks+=('export PATH="$TOOLCHAIN/bin:$PATH";');
 SSL_360_tasks+=('[ -n "@CFLAGS@" ] && export CFLAGS="@CFLAGS@";');
@@ -516,12 +520,24 @@ LIB_PCSC_tasks+=('LIBUSB_CFLAGS="$(PKG_CONFIG_LIBDIR=@PREFIX@/lib/pkgconfig $PKG
 LIB_PCSC_tasks+=('[ "@TYPE@" == "android-ndk" ] && export ANDROID_NDK="@TOOLCHAIN@";');
 LIB_PCSC_tasks+=('[ "@TYPE@" == "android-ndk" ] && LIBUSB_LIBS="-L@PREFIX@/lib/@HOST@/@API@ -lusb-1.0";');
 LIB_PCSC_tasks+=('[ "@TYPE@" == "android-ndk" ] && LOG="LIBS=-llog" || LOG="";');
-LIB_PCSC_tasks+=('[ "@TYPE@" == "android-ndk" ] && FLAGS="--enable-static --disable-shared --disable-libudev $LOG" || FLAGS="--enable-static --disable-libudev";');
-LIB_PCSC_tasks+=("find . -name "configure.ac" -type f -exec sed -i "s/[0-9]\.[0-9]\.[0-9]/$LIB_PCSC_version/g" {} \;;");
+LIB_PCSC_tasks+=('[ "@TYPE@" == "android-ndk" ] && MESON_FLAGS="--default-library=static -Dlibudev=false" || MESON_FLAGS="-Dlibudev=false";');
+LIB_PCSC_tasks+=('echo "[binaries]" > cross-file.txt;');
+LIB_PCSC_tasks+=('echo "c = '\''@CC@'\''" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "pkg-config = '\''pkg-config'\''" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "[properties]" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "sys_root = '\''@PREFIX@'\''" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "pkg_config_libdir = '\''@PREFIX@/lib/pkgconfig'\''" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "[host_machine]" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "system = '\''linux'\''" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "cpu_family = '\''arm'\''" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "cpu = '\''@HOST@'\''" >> cross-file.txt;');
+LIB_PCSC_tasks+=('echo "endian = '\''little'\''" >> cross-file.txt;');
 LIB_PCSC_tasks+=("find . -name "pcsc-wirecheck-main.c" -type f -exec sed -i 's/pcsc_assert_wire_constants ()/0/g' {} \;;");
-LIB_PCSC_tasks+=('./bootstrap && ./configure --prefix=@PREFIX@ --host=@HOST@ $FLAGS --disable-polkit --disable-libsystemd --with-systemdsystemunitdir=@PREFIX@/lib/systemd/system LIBUSB_LIBS="${LIBUSB_LIBS}" LIBUSB_CFLAGS="${LIBUSB_CFLAGS}";');
-LIB_PCSC_tasks+=('make -j@CPUS@;');
-LIB_PCSC_tasks+=('make install;');
+LIB_PCSC_tasks+=('meson setup build --prefix=@PREFIX@ --cross-file cross-file.txt $MESON_FLAGS -Dpolkit=false -Dlibsystemd=false -Dsystemdunit=system;');
+LIB_PCSC_tasks+=('ninja -C build -j@CPUS@;');
+LIB_PCSC_tasks+=('ninja -C build install;');
 LIB_PCSC_tasks+=('[ "@TYPE@" == "android-ndk" ] && find "@PREFIX@/lib/" -maxdepth 1 -name "libpcsc*" -execdir ln -frs "@PREFIX@/lib/{}" "@PREFIX@/lib/@HOST@/@API@/{}" \;;');
 LIB_PCSC_tasks+=('@VALIDATE@ "PCSC";');
 LIB_PCSC_tasks+=('[ "@TYPE@" == "android-ndk" ] && zip -j "$bdir/@HOST@@API@-pcscd.zip" -xi "@PREFIX@/sbin/pcscd";');

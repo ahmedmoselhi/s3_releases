@@ -144,6 +144,7 @@ _cmd_build(){
 			"USE_PCSC=1")
 					((libcount++));
 					_pcsc_on
+					PCSC_LIB="PCSC_LIB=-lpcsclite"
 					_pcsc="-pcsc";;			# set pcsc suffix to name
 			"USE_LIBDVBCSA=1")
 					((libcount++));
